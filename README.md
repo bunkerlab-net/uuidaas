@@ -1,19 +1,20 @@
 # UUIDaaS
 
-UUID generation and inspection as a service, built with [Elysia](https://elysiajs.com) on the [Bun](https://bun.sh)
-runtime. Generates every UUID version the [`uuid`](https://www.npmjs.com/package/uuid) library supports — plus
-[Nano IDs](https://www.npmjs.com/package/nanoid), validation, and version inspection — with structured request logging
+UUID generation and inspection as a service, built with [ElysiaJS](https://elysiajs.com) on the [Bun](https://bun.sh)
+runtime. Generates every UUID version the [`uuid`](https://www.npmjs.com/package/uuid) library supports - plus
+[Nano IDs](https://www.npmjs.com/package/nanoid) - validation, and version inspection with structured request logging
 and auto-generated OpenAPI docs.
 
 ## Requirements
 
-- [Bun](https://bun.sh) `1.x`
+- [mise](https://mise.jdx.dev) - provisions the entire toolchain (Bun, Node, Biome, and more) declared in `mise.toml`.
 
 ## Getting started
 
 ```bash
-bun install
-bun dev      # watch mode, restarts on change
+mise install   # provision the toolchain (Bun, Node, Biome, ...) from mise.toml
+bun install    # install project dependencies
+bun dev        # watch mode, restarts on change
 ```
 
 The server listens on <http://0.0.0.0:3000>. Interactive API docs are at <http://0.0.0.0:3000/docs>.
@@ -43,7 +44,7 @@ All generation and inspection routes are served under the `/api` prefix. The Ope
 | `POST` | `/api/version`  | Report a UUID's version                     |
 | `GET`  | `/docs`         | OpenAPI documentation                       |
 
-> **Note:** UUIDv8 is intentionally not offered — RFC 9562 reserves it for custom/vendor-specific data, and the `uuid`
+> **Note:** UUIDv8 is intentionally not offered - RFC 9562 reserves it for custom/vendor-specific data, and the `uuid`
 > library provides no generator for it.
 
 ### Generating UUIDs
@@ -59,9 +60,9 @@ curl http://localhost:3000/api/v4
 
 Name-based UUIDs hash a `name` within a `namespace`. Both are optional query parameters:
 
-- `namespace` — a UUID. Defaults to the RFC 9562 **URL** namespace (`6ba7b811-9dad-11d1-80b4-00c04fd430c8`). An invalid
+- `namespace` - a UUID. Defaults to the RFC 9562 **URL** namespace (`6ba7b811-9dad-11d1-80b4-00c04fd430c8`). An invalid
   namespace returns `400`.
-- `name` — the string to hash. Defaults to a random value, so a bare request still returns a valid (but non-deterministic)
+- `name` - the string to hash. Defaults to a random value, so a bare request still returns a valid (but non-deterministic)
   UUID.
 
 ```bash
@@ -72,7 +73,7 @@ curl "http://localhost:3000/api/v5?name=hello&namespace=6ba7b810-9dad-11d1-80b4-
 
 #### Nano IDs (`/api/nanoid`)
 
-Returns `{ "id": "<value>" }` — a URL-friendly random ID (alphabet `A-Za-z0-9_-`).
+Returns `{ "id": "<value>" }` - a URL-friendly random ID (alphabet `A-Za-z0-9_-`).
 The length is set by an optional `size` query parameter (1–1024, default 21); an out-of-range or non-numeric size returns
 `422`.
 
@@ -160,13 +161,13 @@ bun test
 
 ## License
 
-[MIT](./LICENSE) — do whatever you want with it.
+[MIT](./LICENSE) - do whatever you want with it.
 
 ## Project structure
 
 ```text
 src/
-  index.ts          Entry point — binds the port
+  index.ts          Entry point - binds the port
   app.ts            Composes the Elysia app (importable by tests)
   logger.ts         pino logger + request-logging Elysia plugin
   schemas.ts        Shared TypeBox request/response schemas

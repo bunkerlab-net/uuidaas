@@ -1,5 +1,6 @@
 import { openapi } from "@elysia/openapi";
 import { Elysia } from "elysia";
+import pkg from "../package.json";
 import { logger } from "./logger";
 import { generate } from "./routes/generate";
 import { inspect } from "./routes/inspect";
@@ -13,9 +14,8 @@ export const app = new Elysia()
       documentation: {
         info: {
           title: "UUIDaaS",
-          version: "1.0.0",
-          description:
-            "UUID generation and inspection as a service, powered by Elysia + Bun.",
+          version: pkg.version,
+          description: pkg.description,
         },
         tags: [
           { name: "Generate", description: "Generate UUIDs" },

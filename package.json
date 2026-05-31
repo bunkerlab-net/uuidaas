@@ -1,6 +1,7 @@
 {
   "name": "uuidaas",
   "version": "1.0.0",
+  "description": "UUID and NanoID generation and inspection as a service, powered by ElysiaJS + Bun",
   "license": "MIT",
   "module": "src/index.js",
   "scripts": {
@@ -19,5 +20,6 @@
   },
   "devDependencies": {
     "bun-types": "^1.3.14"
-  }
+  },
+  "packageManager": "bun@1.3.14"
 }
