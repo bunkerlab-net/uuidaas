@@ -158,6 +158,10 @@ An invalid `LOG_FORMAT` fails loudly at startup rather than guessing.
 bun test
 ```
 
+## License
+
+[MIT](./LICENSE) — do whatever you want with it.
+
 ## Project structure
 
 ```text
