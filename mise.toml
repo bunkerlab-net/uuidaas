@@ -1,0 +1,17 @@
+[settings]
+experimental = true
+minimum_release_age = "7d"
+npm.package_manager = "bun"
+
+[tools]
+"npm:sort-package-json" = "3.6"
+
+biome = "2"
+bun = "1"
+hk = "1.45.0"
+node = "24"
+pkl = "0.31"
+usage = "latest"
+
+[hooks]
+enter = ["hk install --mise"]
