@@ -1,4 +1,5 @@
 import type { Writable } from "node:stream";
+import { ecsFormat } from "@elastic/ecs-pino-format";
 import { Elysia } from "elysia";
 import pino from "pino";
 import pretty from "pino-pretty";
@@ -14,9 +15,10 @@ export function resolveFormat(): LogFormat {
 }
 
 /**
- * Build a pino logger. `json` emits one structured JSON record per line (ideal
- * for log shippers); `plain` pretty-prints human-readable lines via pino-pretty.
- * `destination` is an injection seam for tests — production writes to stdout.
+ * Build a pino logger. `json` emits Elastic Common Schema (ECS) JSON (one
+ * record per line, ideal for log shippers); `plain` pretty-prints human-readable
+ * lines via pino-pretty. `destination` is an injection seam for tests —
+ * production writes to stdout.
  */
 export function buildLogger(
   format: LogFormat,
@@ -33,7 +35,8 @@ export function buildLogger(
       }),
     );
   }
-  return destination ? pino({ level }, destination) : pino({ level });
+  const options = { ...ecsFormat(), level };
+  return destination ? pino(options, destination) : pino(options);
 }
 
 /**
@@ -45,6 +48,11 @@ export const log = buildLogger(
   process.env.LOG_LEVEL ??
     (process.env.NODE_ENV === "test" ? "silent" : "info"),
 );
+
+/** Health probes are frequent and low-value, so they're excluded from request logging. */
+export function shouldLog(path: string): boolean {
+  return !path.startsWith("/health/");
+}
 
 /**
  * Elysia plugin that logs one structured line per request after the response is
@@ -59,6 +67,7 @@ export const logger = new Elysia({ name: "logger" })
     path,
   }))
   .onAfterResponse(({ method, path, set, start }) => {
+    if (!shouldLog(path)) return;
     log.info(
       {
         method,

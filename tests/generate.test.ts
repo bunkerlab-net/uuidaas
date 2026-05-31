@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { MAX, NIL, v3, v5, validate, version } from "uuid";
+import { MAX, NIL, parse, v3, v5, validate, version } from "uuid";
 import { app } from "../src/app";
 
 const URL_NAMESPACE = v5.URL;
@@ -73,6 +73,36 @@ describe("generate", () => {
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
       expect(body.error).toContain("Invalid namespace UUID");
+    });
+  });
+
+  describe("v2 (DCE Security)", () => {
+    it("GET /v2 defaults to a valid v2 UUID", async () => {
+      const { status, body } = await getJson("/v2");
+      expect(status).toBe(200);
+      expect(validate(body.uuid)).toBe(true);
+      expect(version(body.uuid)).toBe(2);
+    });
+
+    it("GET /v2 embeds the domain and id when provided", async () => {
+      const { body } = await getJson("/v2?domain=1&id=1000");
+      expect(version(body.uuid)).toBe(2);
+      const bytes = parse(body.uuid);
+      const timeLow =
+        ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>>
+        0;
+      expect(timeLow).toBe(1000);
+      expect(bytes[9]).toBe(1);
+    });
+
+    it.each([
+      "/v2?domain=256",
+      "/v2?domain=-1",
+      "/v2?id=4294967296",
+      "/v2?id=1.5",
+    ])("GET %s rejects out-of-range input with 422", async (path) => {
+      const res = await get(path);
+      expect(res.status).toBe(422);
     });
   });
 

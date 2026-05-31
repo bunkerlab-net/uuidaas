@@ -1,7 +1,9 @@
 import { Elysia } from "elysia";
 import { validate, version } from "uuid";
+import { decode } from "../decode";
 import {
   ErrorResponse,
+  InvalidResponse,
   UuidBody,
   ValidateResponse,
   VersionResponse,
@@ -11,13 +13,16 @@ export const inspect = new Elysia({ name: "inspect" })
   .post(
     "/validate",
     ({ body, status }) => {
-      const result = { uuid: body.uuid, valid: validate(body.uuid) };
-      return result.valid ? result : status(400, result);
+      const { uuid } = body;
+      if (!validate(uuid)) {
+        return status(400, { uuid, valid: false });
+      }
+      return { uuid, valid: true, ...decode(uuid) };
     },
     {
       body: UuidBody,
-      response: { 200: ValidateResponse, 400: ValidateResponse },
-      detail: { summary: "Validate a UUID", tags: ["Inspect"] },
+      response: { 200: ValidateResponse, 400: InvalidResponse },
+      detail: { summary: "Validate and decode a UUID", tags: ["Inspect"] },
     },
   )
   .post(
@@ -31,6 +36,12 @@ export const inspect = new Elysia({ name: "inspect" })
     {
       body: UuidBody,
       response: { 200: VersionResponse, 400: ErrorResponse },
-      detail: { summary: "Get the version of a UUID", tags: ["Inspect"] },
+      detail: {
+        summary: "Get the version of a UUID",
+        description:
+          "Deprecated: use POST /api/validate, which returns the version plus a full field breakdown.",
+        tags: ["Inspect"],
+        deprecated: true,
+      },
     },
   );

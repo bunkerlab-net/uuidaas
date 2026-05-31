@@ -11,6 +11,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "@elastic/ecs-pino-format": "^1.5.0",
     "@elysia/openapi": "^1.4.15",
     "elysia": "^1.4.28",
     "nanoid": "^5.1.11",

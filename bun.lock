@@ -5,6 +5,7 @@
     "": {
       "name": "uuidaas",
       "dependencies": {
+        "@elastic/ecs-pino-format": "^1.5.0",
         "@elysia/openapi": "^1.4.15",
         "elysia": "^1.4.28",
         "nanoid": "^5.1.11",
@@ -19,6 +20,10 @@
   },
   "packages": {
     "@borewit/text-codec": ["@borewit/text-codec@0.2.2", "", {}, "sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ=="],
+
+    "@elastic/ecs-helpers": ["@elastic/ecs-helpers@2.1.1", "", {}, "sha512-ItoNazMnYdlUCmkBYTXc3SG6PF7UlVTbvMdHPvXkfTMPdwGv2G1Xtp5CjDHaGHGOZSwaDrW4RSCXvA/lMSU+rg=="],
+
+    "@elastic/ecs-pino-format": ["@elastic/ecs-pino-format@1.5.0", "", { "dependencies": { "@elastic/ecs-helpers": "^2.1.1" } }, "sha512-7MMVmT50ucEl7no8mUgCIl+pffBVNRl36uZi0vmalWa2xPWISBxM9k9WSP/WTgOkmGj9G35e5g3UfCS1zxshBg=="],
 
     "@elysia/openapi": ["@elysia/openapi@1.4.15", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-MrVGCPo5hnRF4/yWGOyH5ddjt4DlSIbeC5rrkupQtHY8TEQe+XdJa2YM9aUOrtgtRcy4UNGyiVlLl/jllPkPQA=="],
 

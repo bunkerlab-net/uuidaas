@@ -31,10 +31,47 @@ export const UuidBody = t.Object({
   uuid: t.String({ description: "The UUID to inspect" }),
 });
 
-/** Result of validating a UUID. */
+/** The decoded fields of a UUID: raw structure plus version-specific semantics. */
+export const UuidFields = t.Object({
+  bytes: t.String({ description: "The 16 raw bytes as hex" }),
+  timeLow: t.Number({ description: "time_low (bytes 0-3)" }),
+  timeMid: t.Number({ description: "time_mid (bytes 4-5)" }),
+  timeHiAndVersion: t.Number({
+    description: "time_hi_and_version (bytes 6-7)",
+  }),
+  clockSeqHi: t.Number({ description: "clock_seq_hi_and_reserved (byte 8)" }),
+  clockSeqLow: t.Number({ description: "clock_seq_low (byte 9)" }),
+  node: t.String({ description: "node (bytes 10-15) as hex" }),
+  timestamp: t.Optional(
+    t.String({ description: "Decoded ISO timestamp (v1, v6, v7)" }),
+  ),
+  clockSequence: t.Optional(
+    t.Number({ description: "14-bit clock sequence (v1, v6)" }),
+  ),
+  macAddress: t.Optional(
+    t.String({ description: "Node as a MAC address (v1, v6)" }),
+  ),
+  domain: t.Optional(t.Number({ description: "DCE local domain (v2)" })),
+  identifier: t.Optional(
+    t.Number({ description: "DCE local identifier (v2)" }),
+  ),
+});
+
+/** Result of validating a valid UUID, with its decoded version, variant, and fields. */
 export const ValidateResponse = t.Object({
   uuid: t.String(),
   valid: t.Boolean({ description: "Whether the string is a valid UUID" }),
+  version: t.Number({ description: "The UUID version field" }),
+  variant: t.String({
+    description: "The UUID variant: RFC, NCS, Microsoft, or Future",
+  }),
+  fields: UuidFields,
+});
+
+/** Result when a UUID fails validation; returned with a 400. */
+export const InvalidResponse = t.Object({
+  uuid: t.String(),
+  valid: t.Boolean({ description: "Always false here" }),
 });
 
 /** Result of inspecting a UUID's version. */
@@ -57,4 +94,30 @@ export const NanoidQuery = t.Object({
       description: "ID length in characters (1–1024). Defaults to 21.",
     }),
   ),
+});
+
+/** Optional inputs for DCE Security UUIDs (v2). */
+export const DceSecurityQuery = t.Object({
+  domain: t.Optional(
+    t.Numeric({
+      minimum: 0,
+      maximum: 255,
+      multipleOf: 1,
+      description:
+        "Local domain: 0=person (UID), 1=group (GID), 2=org. Defaults to 0.",
+    }),
+  ),
+  id: t.Optional(
+    t.Numeric({
+      minimum: 0,
+      maximum: 4294967295,
+      multipleOf: 1,
+      description: "32-bit local identifier. Defaults to a random value.",
+    }),
+  ),
+});
+
+/** Health probe result. */
+export const HealthResponse = t.Object({
+  status: t.String({ description: "Probe status" }),
 });

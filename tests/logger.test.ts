@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Writable } from "node:stream";
-import { buildLogger, resolveFormat } from "../src/logger";
+import { buildLogger, resolveFormat, shouldLog } from "../src/logger";
 
 /** A real Writable so pino-pretty (which pipes to its destination) is happy. */
 const capture = () => {
@@ -18,15 +18,17 @@ const capture = () => {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 50));
 
 describe("buildLogger formats", () => {
-  it("json emits one parseable JSON record", async () => {
+  it("json emits an Elastic Common Schema (ECS) record", async () => {
     const sink = capture();
     buildLogger("json", "info", sink.stream).info({ path: "/v4" }, "request");
     await tick();
 
     const record = JSON.parse(sink.read());
-    expect(record.msg).toBe("request");
+    expect(record["log.level"]).toBe("info");
+    expect(record["ecs.version"]).toBeDefined();
+    expect(record["@timestamp"]).toBeDefined();
+    expect(record.message).toBe("request");
     expect(record.path).toBe("/v4");
-    expect(record.level).toBe(30);
   });
 
   it("plain emits human-readable, non-JSON output", async () => {
@@ -73,5 +75,18 @@ describe("resolveFormat", () => {
     withEnv("xml", () =>
       expect(() => resolveFormat()).toThrow(/Invalid LOG_FORMAT/),
     );
+  });
+});
+
+describe("shouldLog", () => {
+  it.each([
+    "/health/live",
+    "/health/ready",
+  ])("excludes %s from request logging", (path) => {
+    expect(shouldLog(path)).toBe(false);
+  });
+
+  it.each(["/api/v4", "/api/validate", "/docs"])("logs %s", (path) => {
+    expect(shouldLog(path)).toBe(true);
   });
 });
