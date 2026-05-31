@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
+import { ulid } from "ulid";
 import {
   MAX,
   NIL,
@@ -19,6 +20,7 @@ import {
   IdResponse,
   NameBasedQuery,
   NanoidQuery,
+  UlidQuery,
   UuidResponse,
 } from "../schemas";
 
@@ -109,4 +111,18 @@ export const generate = new Elysia({ name: "generate" })
       summary: "Nano ID (URL-friendly, configurable length)",
       tags: ["Generate"],
     },
-  });
+  })
+  .get(
+    "/ulid",
+    ({ query }) => ({
+      id: query.seed === undefined ? ulid() : ulid(query.seed),
+    }),
+    {
+      query: UlidQuery,
+      response: IdResponse,
+      detail: {
+        summary: "ULID (Crockford Base32, lexicographically sortable)",
+        tags: ["Generate"],
+      },
+    },
+  );

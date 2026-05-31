@@ -60,16 +60,60 @@ describe("POST /validate", () => {
     });
   });
 
-  it("reports junk as invalid with a 400", async () => {
+  it("accepts a UUID under the id field", async () => {
+    const res = await post("/validate", { id: DNS });
+    const body = (await res.json()) as { uuid: string; version: number };
+    expect(res.status).toBe(200);
+    expect(body.uuid).toBe(DNS);
+    expect(body.version).toBe(1);
+  });
+
+  it("reports junk (uuid field) as invalid with a 400", async () => {
     const res = await post("/validate", { uuid: "definitely-not-a-uuid" });
     const body = (await res.json()) as { uuid: string; valid: boolean };
     expect(res.status).toBe(400);
     expect(body).toEqual({ uuid: "definitely-not-a-uuid", valid: false });
   });
 
-  it("rejects a body missing the uuid field with 422", async () => {
+  it("echoes junk under the id field when sent as id", async () => {
+    const res = await post("/validate", { id: "definitely-not-an-id" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      id: "definitely-not-an-id",
+      valid: false,
+    });
+  });
+
+  it("rejects a body missing both id and uuid with 422", async () => {
     const res = await post("/validate", {});
     expect(res.status).toBe(422);
+  });
+});
+
+describe("POST /validate (ULID detection)", () => {
+  const ULID = "01ARYZ6S4112ZSW8WTJBP55X2K";
+  const DECODED = {
+    ulid: ULID,
+    valid: true,
+    fields: {
+      time: 1469918176385,
+      timestamp: "2016-07-30T22:36:16.385Z",
+      timeComponent: "01ARYZ6S41",
+      randomComponent: "12ZSW8WTJBP55X2K",
+      uuid: "01563df3-6481-08bf-9e23-9a92ec52f453",
+    },
+  };
+
+  it("detects and decodes a ULID sent under the id field", async () => {
+    const res = await post("/validate", { id: ULID });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(DECODED);
+  });
+
+  it("detects a ULID sent under the uuid alias too", async () => {
+    const res = await post("/validate", { uuid: ULID });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(DECODED);
   });
 });
 

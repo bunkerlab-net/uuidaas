@@ -31,6 +31,25 @@ export const UuidBody = t.Object({
   uuid: t.String({ description: "The UUID to inspect" }),
 });
 
+/**
+ * Body for POST /validate: a single id under either `id` (preferred) or `uuid`
+ * (back-compat alias). A union so a body missing both fields fails validation
+ * (422); plain strings so invalid values reach the handler.
+ */
+export const ValidateBody = t.Union([
+  t.Object({ id: t.String({ description: "The UUID or ULID to inspect" }) }),
+  t.Object({
+    uuid: t.String({
+      description: "The UUID or ULID to inspect (alias of id)",
+    }),
+  }),
+]);
+
+/** Body carrying a single ULID. Plain string so invalid values reach the handler. */
+export const UlidBody = t.Object({
+  ulid: t.String({ description: "The ULID to convert" }),
+});
+
 /** The decoded fields of a UUID: raw structure plus version-specific semantics. */
 export const UuidFields = t.Object({
   bytes: t.String({ description: "The 16 raw bytes as hex" }),
@@ -74,6 +93,12 @@ export const InvalidResponse = t.Object({
   valid: t.Boolean({ description: "Always false here" }),
 });
 
+/** Result when an id fails validation as both UUID and ULID; returned with a 400. */
+export const IdInvalidResponse = t.Object({
+  id: t.String(),
+  valid: t.Boolean({ description: "Always false here" }),
+});
+
 /** Result of inspecting a UUID's version. */
 export const VersionResponse = t.Object({
   uuid: t.String(),
@@ -85,10 +110,14 @@ export const IdResponse = t.Object({
   id: t.String({ description: "The generated ID" }),
 });
 
-/** Optional inputs for Nano IDs. Out-of-range sizes fail schema validation (422). */
+/**
+ * Optional inputs for Nano IDs. Out-of-range sizes fail schema validation (422).
+ * t.Number (not t.Numeric) so no spurious `default: 0` leaks into the OpenAPI
+ * spec; Elysia still coerces the query string.
+ */
 export const NanoidQuery = t.Object({
   size: t.Optional(
-    t.Numeric({
+    t.Number({
       minimum: 1,
       maximum: 1024,
       description: "ID length in characters (1–1024). Defaults to 21.",
@@ -96,10 +125,13 @@ export const NanoidQuery = t.Object({
   ),
 });
 
-/** Optional inputs for DCE Security UUIDs (v2). */
+/**
+ * Optional inputs for DCE Security UUIDs (v2). t.Number (not t.Numeric) keeps a
+ * spurious `default: 0` out of the OpenAPI spec; Elysia still coerces the query.
+ */
 export const DceSecurityQuery = t.Object({
   domain: t.Optional(
-    t.Numeric({
+    t.Number({
       minimum: 0,
       maximum: 255,
       multipleOf: 1,
@@ -108,13 +140,53 @@ export const DceSecurityQuery = t.Object({
     }),
   ),
   id: t.Optional(
-    t.Numeric({
+    t.Number({
       minimum: 0,
       maximum: 4294967295,
       multipleOf: 1,
       description: "32-bit local identifier. Defaults to a random value.",
     }),
   ),
+});
+
+/**
+ * Optional inputs for ULIDs. Out-of-range seeds fail schema validation (422).
+ * Uses t.Number (Elysia still coerces the query string) rather than t.Numeric,
+ * which would bake a misleading `default: 0` into the OpenAPI spec; an omitted
+ * seed has no default — the handler calls bare `ulid()`.
+ */
+export const UlidQuery = t.Object({
+  seed: t.Optional(
+    t.Number({
+      minimum: 0,
+      maximum: 281474976710655,
+      multipleOf: 1,
+      description:
+        "Unix epoch ms for the time component (0–281474976710655). The random component stays random. Defaults to now.",
+    }),
+  ),
+});
+
+/** The decoded parts of a ULID: its timestamp and component substrings. */
+export const UlidFields = t.Object({
+  time: t.Number({ description: "Time component as Unix epoch ms" }),
+  timestamp: t.String({ description: "Time component as an ISO timestamp" }),
+  timeComponent: t.String({ description: "The 10-char time prefix" }),
+  randomComponent: t.String({ description: "The 16-char random suffix" }),
+  uuid: t.String({ description: "The equivalent 128-bit UUID" }),
+});
+
+/** Result of validating a valid ULID, with its decoded fields. */
+export const UlidValidateResponse = t.Object({
+  ulid: t.String(),
+  valid: t.Boolean({ description: "Whether the string is a valid ULID" }),
+  fields: UlidFields,
+});
+
+/** A UUID and its equivalent ULID — the same 128 bits in both encodings. */
+export const ConversionResponse = t.Object({
+  uuid: t.String({ description: "The UUID form" }),
+  ulid: t.String({ description: "The ULID form" }),
 });
 
 /** Health probe result. */

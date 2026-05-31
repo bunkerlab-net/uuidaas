@@ -1,3 +1,4 @@
+import { decodeTime, ulidToUUID } from "ulid";
 import { parse, v6ToV1, version } from "uuid";
 
 // 100-nanosecond intervals between the Gregorian epoch (1582-10-15) and the
@@ -89,4 +90,29 @@ export function decode(uuid: string): DecodedUuid {
   }
 
   return { version: v, variant: variantOf(bytes[8]), fields };
+}
+
+export interface DecodedUlid {
+  time: number;
+  timestamp: string;
+  timeComponent: string;
+  randomComponent: string;
+  uuid: string;
+}
+
+/**
+ * Decode a validated ULID into its time component (as Unix ms and ISO), its
+ * raw time/random substrings, and the equivalent 128-bit UUID. A ULID is 26
+ * Crockford Base32 characters: a 10-char time prefix and a 16-char random
+ * suffix.
+ */
+export function decodeUlid(id: string): DecodedUlid {
+  const time = decodeTime(id);
+  return {
+    time,
+    timestamp: new Date(time).toISOString(),
+    timeComponent: id.slice(0, 10),
+    randomComponent: id.slice(10),
+    uuid: ulidToUUID(id).toLowerCase(),
+  };
 }

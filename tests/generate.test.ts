@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { decodeTime, isValid } from "ulid";
 import { MAX, NIL, parse, v3, v5, validate, version } from "uuid";
 import { app } from "../src/app";
 
@@ -54,6 +55,15 @@ describe("generate", () => {
       expect(version(body.uuid)).toBe(expectedVersion);
     });
 
+    it.each([
+      "/v3",
+      "/v5",
+    ] as const)("GET %s defaults the name to a random value (different each call)", async (path) => {
+      const a = await getJson(path);
+      const b = await getJson(path);
+      expect(a.body.uuid).not.toBe(b.body.uuid);
+    });
+
     it("GET /v3?name=... is deterministic and matches the uuid lib", async () => {
       const first = await getJson("/v3?name=hello");
       const second = await getJson("/v3?name=hello");
@@ -82,6 +92,23 @@ describe("generate", () => {
       expect(status).toBe(200);
       expect(validate(body.uuid)).toBe(true);
       expect(version(body.uuid)).toBe(2);
+    });
+
+    it("GET /v2 defaults domain to 0 and id to a random value", async () => {
+      const idOf = (uuid: string) => {
+        const bytes = parse(uuid);
+        return (
+          ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>>
+          0
+        );
+      };
+      const a = await getJson("/v2");
+      const b = await getJson("/v2");
+      // domain (byte 9) defaults to 0
+      expect(parse(a.body.uuid)[9]).toBe(0);
+      expect(parse(b.body.uuid)[9]).toBe(0);
+      // id (time_low) defaults to a random value, so it differs across calls
+      expect(idOf(a.body.uuid)).not.toBe(idOf(b.body.uuid));
     });
 
     it("GET /v2 embeds the domain and id when provided", async () => {
@@ -132,6 +159,43 @@ describe("generate", () => {
       "/nanoid?size=99999",
       "/nanoid?size=abc",
     ])("GET %s rejects an invalid size with 422", async (path) => {
+      const res = await get(path);
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe("ulid", () => {
+    // Crockford Base32: digits plus A-Z without I, L, O, U.
+    const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+
+    it("GET /ulid returns a valid 26-char ULID", async () => {
+      const res = await get("/ulid");
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { id: string };
+      expect(body.id).toMatch(ULID_RE);
+      expect(isValid(body.id)).toBe(true);
+    });
+
+    it("GET /ulid returns a different id each call", async () => {
+      const a = (await (await get("/ulid")).json()) as { id: string };
+      const b = (await (await get("/ulid")).json()) as { id: string };
+      expect(a.id).not.toBe(b.id);
+    });
+
+    it("GET /ulid?seed=... sets the time component", async () => {
+      const seed = 1469918176385;
+      const body = (await (await get(`/ulid?seed=${seed}`)).json()) as {
+        id: string;
+      };
+      expect(decodeTime(body.id)).toBe(seed);
+    });
+
+    it.each([
+      "/ulid?seed=-1",
+      "/ulid?seed=281474976710656",
+      "/ulid?seed=abc",
+      "/ulid?seed=1.5",
+    ])("GET %s rejects an invalid seed with 422", async (path) => {
       const res = await get(path);
       expect(res.status).toBe(422);
     });

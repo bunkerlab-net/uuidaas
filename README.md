@@ -1,9 +1,10 @@
 # UUIDaaS
 
 UUID generation and inspection as a service, built with [ElysiaJS](https://elysiajs.com) on the [Bun](https://bun.sh)
-runtime. Generates every UUID version from v0 to v7, a hand-rolled v2 (DCE Security), and
-[Nano IDs](https://www.npmjs.com/package/nanoid). Validates and decodes UUIDs into their fields via the
-[`uuid`](https://www.npmjs.com/package/uuid) library, with structured request logging and auto-generated OpenAPI docs.
+runtime. Generates every UUID version from v0 to v7, a hand-rolled v2 (DCE Security),
+[ULIDs](https://github.com/ulid/spec), and [Nano IDs](https://www.npmjs.com/package/nanoid). Validates and decodes
+UUIDs and ULIDs into their fields via the [`uuid`](https://www.npmjs.com/package/uuid) and
+[`ulid`](https://www.npmjs.com/package/ulid) libraries, with structured request logging and auto-generated OpenAPI docs.
 
 ## Requirements
 
@@ -30,23 +31,26 @@ bun start
 All generation and inspection routes are served under the `/api` prefix. The OpenAPI UI (`/docs`) and the health probes
 (`/health/live`, `/health/ready`) live at the root.
 
-| Method | Path            | Description                                 |
-| ------ | --------------- | ------------------------------------------- |
-| `GET`  | `/api/v0`       | Nil UUID (all zeroes)                       |
-| `GET`  | `/api/v1`       | UUIDv1 (timestamp + node)                   |
-| `GET`  | `/api/v2`       | UUIDv2 (DCE Security)                       |
-| `GET`  | `/api/v3`       | UUIDv3 (MD5, name-based)                    |
-| `GET`  | `/api/v4`       | UUIDv4 (random)                             |
-| `GET`  | `/api/v5`       | UUIDv5 (SHA-1, name-based)                  |
-| `GET`  | `/api/v6`       | UUIDv6 (reordered timestamp)                |
-| `GET`  | `/api/v7`       | UUIDv7 (Unix-epoch, sortable)               |
-| `GET`  | `/api/max`      | Max UUID (all ones)                         |
-| `GET`  | `/api/nanoid`   | Nano ID (URL-friendly, configurable length) |
-| `POST` | `/api/validate` | Validate and decode a UUID                  |
-| `POST` | `/api/version`  | Report a UUID's version (deprecated)        |
-| `GET`  | `/health/live`  | Liveness probe                              |
-| `GET`  | `/health/ready` | Readiness probe                             |
-| `GET`  | `/docs`         | OpenAPI documentation                       |
+| Method | Path                | Description                                 |
+| ------ | ------------------- | ------------------------------------------- |
+| `GET`  | `/api/v0`           | Nil UUID (all zeroes)                       |
+| `GET`  | `/api/v1`           | UUIDv1 (timestamp + node)                   |
+| `GET`  | `/api/v2`           | UUIDv2 (DCE Security)                       |
+| `GET`  | `/api/v3`           | UUIDv3 (MD5, name-based)                    |
+| `GET`  | `/api/v4`           | UUIDv4 (random)                             |
+| `GET`  | `/api/v5`           | UUIDv5 (SHA-1, name-based)                  |
+| `GET`  | `/api/v6`           | UUIDv6 (reordered timestamp)                |
+| `GET`  | `/api/v7`           | UUIDv7 (Unix-epoch, sortable)               |
+| `GET`  | `/api/max`          | Max UUID (all ones)                         |
+| `GET`  | `/api/nanoid`       | Nano ID (URL-friendly, configurable length) |
+| `GET`  | `/api/ulid`         | ULID (Crockford Base32, sortable)           |
+| `POST` | `/api/validate`     | Validate and decode a UUID or ULID          |
+| `POST` | `/api/version`      | Report a UUID's version (deprecated)        |
+| `POST` | `/api/ulid/to-uuid` | Convert a ULID to its UUID form             |
+| `POST` | `/api/uuid/to-ulid` | Convert a UUID to its ULID form             |
+| `GET`  | `/health/live`      | Liveness probe                              |
+| `GET`  | `/health/ready`     | Readiness probe                             |
+| `GET`  | `/docs`             | OpenAPI documentation                       |
 
 > **Note:** UUIDv8 is intentionally not offered - RFC 9562 reserves it for custom/vendor-specific data, and the `uuid`
 > library provides no generator for it.
@@ -104,20 +108,46 @@ curl "http://localhost:3000/api/nanoid?size=8"
 # {"id":"IRFa-VaY"}
 ```
 
-### Inspecting UUIDs
+#### ULIDs (`/api/ulid`)
+
+Returns `{ "id": "<value>" }` - a 26-character [ULID](https://github.com/ulid/spec): a 48-bit timestamp followed by
+80 bits of randomness, encoded in Crockford Base32 and lexicographically sortable. An optional `seed` query parameter
+sets the time component (Unix epoch ms, `0`-`281474976710655`); the random component stays random and the timestamp
+defaults to now. An out-of-range or non-integer seed returns `422`.
+
+```bash
+curl http://localhost:3000/api/ulid
+# {"id":"01JR8Z9X2QF5N3K7VWB4M6T8YH"}
+
+# Seed the time component (everything before the randomness)
+curl "http://localhost:3000/api/ulid?seed=1469918176385"
+# {"id":"01ARYZ6S41..."}
+```
+
+### Inspecting UUIDs and ULIDs
 
 #### `POST /api/validate`
 
-For a valid UUID, returns `200` with `valid: true`, the decoded `version` and `variant`, and a `fields` breakdown.
+Auto-detects the input type and decodes it. Send the value under `id` (preferred) or `uuid` (a back-compat alias); a
+body with neither returns `422`. UUID and ULID formats are mutually exclusive, so detection is unambiguous.
+
+**For a UUID**, returns `200` with `valid: true`, the decoded `version` and `variant`, and a `fields` breakdown.
 `fields` always carries the raw `bytes` (hex) and the structural pieces (`timeLow`, `timeMid`, `timeHiAndVersion`,
 `clockSeqHi`, `clockSeqLow`, `node`), plus version-specific values where meaningful: `timestamp` (v1, v6, v7),
-`clockSequence` and `macAddress` (v1, v6), and `domain` and `identifier` (v2). An invalid UUID returns
-`400 { "uuid": "...", "valid": false }`.
+`clockSequence` and `macAddress` (v1, v6), and `domain` and `identifier` (v2).
+
+**For a ULID** (matched case-insensitively), returns `200` with `valid: true` and a `fields` breakdown: the `time`
+(Unix epoch ms) and its ISO `timestamp`, the raw `timeComponent` (first 10 chars) and `randomComponent` (last 16
+chars), and the equivalent 128-bit `uuid`.
+
+Tell the two apart by which key the response echoes: a UUID response echoes `uuid`, a ULID response echoes `ulid`. A
+value that is neither returns `400`, echoed under the field you sent (e.g. `{ "id": "...", "valid": false }`).
 
 ```bash
+# A UUID -> version, variant, and full UUID fields
 curl -X POST http://localhost:3000/api/validate \
   -H 'content-type: application/json' \
-  -d '{"uuid":"6ba7b810-9dad-11d1-80b4-00c04fd430c8"}'
+  -d '{"id":"6ba7b810-9dad-11d1-80b4-00c04fd430c8"}'
 # 200 {
 #   "uuid": "6ba7b810-9dad-11d1-80b4-00c04fd430c8", "valid": true,
 #   "version": 1, "variant": "RFC",
@@ -130,10 +160,23 @@ curl -X POST http://localhost:3000/api/validate \
 #   }
 # }
 
+# A ULID -> decoded time and components
 curl -X POST http://localhost:3000/api/validate \
   -H 'content-type: application/json' \
-  -d '{"uuid":"not-a-uuid"}'
-# 400 {"uuid":"not-a-uuid","valid":false}
+  -d '{"id":"01ARYZ6S4112ZSW8WTJBP55X2K"}'
+# 200 {
+#   "ulid": "01ARYZ6S4112ZSW8WTJBP55X2K", "valid": true,
+#   "fields": {
+#     "time": 1469918176385, "timestamp": "2016-07-30T22:36:16.385Z",
+#     "timeComponent": "01ARYZ6S41", "randomComponent": "12ZSW8WTJBP55X2K",
+#     "uuid": "01563df3-6481-08bf-9e23-9a92ec52f453"
+#   }
+# }
+
+curl -X POST http://localhost:3000/api/validate \
+  -H 'content-type: application/json' \
+  -d '{"id":"not-an-id"}'
+# 400 {"id":"not-an-id","valid":false}
 ```
 
 #### `POST /api/version` (deprecated)
@@ -148,6 +191,28 @@ curl -X POST http://localhost:3000/api/version \
   -H 'content-type: application/json' \
   -d '{"uuid":"019e7d13-e96b-70da-8376-2318ba78761c"}'
 # {"uuid":"019e7d13-e96b-70da-8376-2318ba78761c","version":7}
+```
+
+### Converting between UUIDs and ULIDs
+
+A UUID and a ULID are both 128 bits, so either can be re-encoded as the other. Both routes return the pair
+`{ "uuid": "...", "ulid": "..." }` and are exact inverses, so a value round-trips through them unchanged.
+
+- `POST /api/ulid/to-uuid` - body `{ "ulid": "..." }`. An invalid ULID returns `400 { "error": "..." }`.
+- `POST /api/uuid/to-ulid` - body `{ "uuid": "..." }`. The input is validated by **format** (`8-4-4-4-12` hex), not by
+  RFC version/variant, so the UUID encoding of a ULID converts back cleanly. An invalid UUID returns
+  `400 { "error": "..." }`.
+
+```bash
+curl -X POST http://localhost:3000/api/ulid/to-uuid \
+  -H 'content-type: application/json' \
+  -d '{"ulid":"01ARYZ6S4112ZSW8WTJBP55X2K"}'
+# {"uuid":"01563df3-6481-08bf-9e23-9a92ec52f453","ulid":"01ARYZ6S4112ZSW8WTJBP55X2K"}
+
+curl -X POST http://localhost:3000/api/uuid/to-ulid \
+  -H 'content-type: application/json' \
+  -d '{"uuid":"6ba7b810-9dad-11d1-80b4-00c04fd430c8"}'
+# {"uuid":"6ba7b810-9dad-11d1-80b4-00c04fd430c8","ulid":"3BMYW117DD278R1D00R17X8C68"}
 ```
 
 ### Health
@@ -184,7 +249,7 @@ LOG_FORMAT=plain bun dev   # human-readable, colorized output for local dev
   "path": "/api/v4",
   "status": 200,
   "durationMs": 0.51,
-  "message": "request"
+  "message": "request",
 }
 ```
 
@@ -217,14 +282,16 @@ src/
   index.ts          Entry point - binds the port
   app.ts            Composes the Elysia app (importable by tests)
   logger.ts         pino logger + request-logging Elysia plugin
-  decode.ts         UUID parsing + field decoding
+  decode.ts         UUID + ULID parsing and field decoding
   schemas.ts        Shared TypeBox request/response schemas
   routes/
-    generate.ts     GET /v0 /v1 /v2 /v3 /v4 /v5 /v6 /v7 /max /nanoid
+    convert.ts      POST /ulid/to-uuid /uuid/to-ulid
+    generate.ts     GET /v0 /v1 /v2 /v3 /v4 /v5 /v6 /v7 /max /nanoid /ulid
     health.ts       GET /health/live /health/ready
     inspect.ts      POST /validate /version
 tests/
   app.test.ts       Docs endpoint + generate→inspect round-trip
+  convert.test.ts   UUID <-> ULID conversion routes
   generate.test.ts  Generation routes
   health.test.ts    Liveness + readiness probes
   inspect.test.ts   Validation + version inspection

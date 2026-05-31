@@ -1,10 +1,14 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
+import { isValid } from "ulid";
 import { validate, version } from "uuid";
-import { decode } from "../decode";
+import { decode, decodeUlid } from "../decode";
 import {
   ErrorResponse,
+  IdInvalidResponse,
   InvalidResponse,
+  UlidValidateResponse,
   UuidBody,
+  ValidateBody,
   ValidateResponse,
   VersionResponse,
 } from "../schemas";
@@ -13,16 +17,32 @@ export const inspect = new Elysia({ name: "inspect" })
   .post(
     "/validate",
     ({ body, status }) => {
-      const { uuid } = body;
-      if (!validate(uuid)) {
-        return status(400, { uuid, valid: false });
+      // UUID and ULID formats are mutually exclusive, so detection is just a
+      // matter of trying each validator. The response echoes the input under a
+      // type-specific key (`uuid` vs `ulid`) so callers can tell them apart.
+      const value = "id" in body ? body.id : body.uuid;
+      if (validate(value)) {
+        return { uuid: value, valid: true, ...decode(value) };
       }
-      return { uuid, valid: true, ...decode(uuid) };
+      if (isValid(value)) {
+        return { ulid: value, valid: true, fields: decodeUlid(value) };
+      }
+      return "id" in body
+        ? status(400, { id: value, valid: false })
+        : status(400, { uuid: value, valid: false });
     },
     {
-      body: UuidBody,
-      response: { 200: ValidateResponse, 400: InvalidResponse },
-      detail: { summary: "Validate and decode a UUID", tags: ["Inspect"] },
+      body: ValidateBody,
+      response: {
+        200: t.Union([ValidateResponse, UlidValidateResponse]),
+        400: t.Union([InvalidResponse, IdInvalidResponse]),
+      },
+      detail: {
+        summary: "Validate and decode a UUID or ULID",
+        description:
+          "Auto-detects the input type. A UUID returns its version, variant, and fields; a ULID returns its decoded fields. Tell them apart by which key the response echoes (`uuid` vs `ulid`).",
+        tags: ["Inspect"],
+      },
     },
   )
   .post(
