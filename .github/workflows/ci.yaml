@@ -56,7 +56,7 @@ jobs:
       - uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         id: meta
         with:
-          images: ${{ github.repository_owner }}/${{ github.repository }}
+          images: ${{ github.repository }}
           tags: |-
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch,priority=600
