@@ -12,7 +12,7 @@ permissions: {}
 
 jobs:
   check:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -34,7 +34,7 @@ jobs:
       - run: bun test
 
   docker:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [check]
     permissions:
       contents: read
