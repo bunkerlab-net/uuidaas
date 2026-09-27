@@ -79,12 +79,12 @@ describe("resolveFormat", () => {
 });
 
 describe("shouldLog", () => {
-  it.each([
-    "/health/live",
-    "/health/ready",
-  ])("excludes %s from request logging", (path) => {
-    expect(shouldLog(path)).toBe(false);
-  });
+  it.each(["/health/live", "/health/ready"])(
+    "excludes %s from request logging",
+    (path) => {
+      expect(shouldLog(path)).toBe(false);
+    },
+  );
 
   it.each(["/api/v4", "/api/validate", "/docs"])("logs %s", (path) => {
     expect(shouldLog(path)).toBe(true);

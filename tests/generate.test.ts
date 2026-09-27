@@ -48,21 +48,24 @@ describe("generate", () => {
     it.each([
       ["/v3", 3],
       ["/v5", 5],
-    ] as const)("GET %s defaults to a valid v%d UUID with a random name", async (path, expectedVersion) => {
-      const { status, body } = await getJson(path);
-      expect(status).toBe(200);
-      expect(validate(body.uuid)).toBe(true);
-      expect(version(body.uuid)).toBe(expectedVersion);
-    });
+    ] as const)(
+      "GET %s defaults to a valid v%d UUID with a random name",
+      async (path, expectedVersion) => {
+        const { status, body } = await getJson(path);
+        expect(status).toBe(200);
+        expect(validate(body.uuid)).toBe(true);
+        expect(version(body.uuid)).toBe(expectedVersion);
+      },
+    );
 
-    it.each([
-      "/v3",
-      "/v5",
-    ] as const)("GET %s defaults the name to a random value (different each call)", async (path) => {
-      const a = await getJson(path);
-      const b = await getJson(path);
-      expect(a.body.uuid).not.toBe(b.body.uuid);
-    });
+    it.each(["/v3", "/v5"] as const)(
+      "GET %s defaults the name to a random value (different each call)",
+      async (path) => {
+        const a = await getJson(path);
+        const b = await getJson(path);
+        expect(a.body.uuid).not.toBe(b.body.uuid);
+      },
+    );
 
     it("GET /v3?name=... is deterministic and matches the uuid lib", async () => {
       const first = await getJson("/v3?name=hello");
@@ -154,14 +157,13 @@ describe("generate", () => {
       expect(a.id).not.toBe(b.id);
     });
 
-    it.each([
-      "/nanoid?size=0",
-      "/nanoid?size=99999",
-      "/nanoid?size=abc",
-    ])("GET %s rejects an invalid size with 422", async (path) => {
-      const res = await get(path);
-      expect(res.status).toBe(422);
-    });
+    it.each(["/nanoid?size=0", "/nanoid?size=99999", "/nanoid?size=abc"])(
+      "GET %s rejects an invalid size with 422",
+      async (path) => {
+        const res = await get(path);
+        expect(res.status).toBe(422);
+      },
+    );
   });
 
   describe("ulid", () => {
